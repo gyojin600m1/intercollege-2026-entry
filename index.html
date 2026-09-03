@@ -181,6 +181,7 @@ select{
 .pill.x{background:linear-gradient(90deg,var(--male),var(--female));color:#fff;border-color:transparent;font-weight:700}
 .pill.t{color:var(--gold);border-color:rgba(255,204,102,.35);font-weight:700;font-variant-numeric:tabular-nums}
 .pill.r{color:var(--muted);border-color:var(--border);font-weight:700}
+.pill.ov{color:var(--muted);border-color:var(--border);font-weight:700}
 .pill.ent{color:var(--accent);border-color:rgba(77,163,255,.4)}
 .pill.nr{background:linear-gradient(135deg,#ff6b2c,#ff3d3d);color:#fff;border-color:transparent;
   font-weight:800;letter-spacing:.3px}
@@ -346,6 +347,7 @@ const LANES = Array.isArray(META.lanes)
   : Array.from({length:META.lanes}, (_,i)=>META.laneStart+i);
 
 const PROGRAM  = DATA.program  || [];
+const PROG_BY_NO = new Map((DATA.program || []).map(p => [p.no, p]));
 const ENTRIES  = DATA.entries  || [];
 const RELAYS   = DATA.relays   || [];
 const SWIMMERS = DATA.swimmers || [];
@@ -398,6 +400,25 @@ const tmTag = (e,tag,cls) => META.noTimes ? "" : `<${tag} class="${cls}">${esc(s
 
 /* ---------- 競技結果（entries[].result / relays[].result があるときだけ） ---------- */
 const MEDAL = {1:"🥇",2:"🥈",3:"🥉"};
+const rdOf = x => (PROG_BY_NO.get((x.programNos||[])[0]) || {}).round || "";
+const isFinalA = x => /^決勝$|^タイム決勝$/.test(rdOf(x));
+const isFinalB = x => /決勝/.test(rdOf(x)) && !isFinalA(x);
+// B決勝は決勝の下位。B決勝1位でも、決勝に8人いるので総合9位。
+const A_SIZE = new Map();
+(()=>{ for(const p of PROGRAM){
+    if(!/^決勝$|^タイム決勝$/.test(p.round||"")) continue;
+    const n = ENTRIES.filter(e => (e.programNos||[]).includes(p.no)).length
+            + RELAYS.filter(r => (r.programNos||[]).includes(p.no)).length;
+    A_SIZE.set([p.gender,p.distance,p.stroke].join("|"), n || 8);
+  } })();
+const overallRank = x => {
+  if(!isFinalB(x) || !x.result || !x.result.rank) return null;
+  const p = PROG_BY_NO.get((x.programNos||[])[0]) || {};
+  return x.result.rank + (A_SIZE.get([p.gender,p.distance,p.stroke].join("|")) ?? 8);
+};
+// メダルは決勝の1〜3位だけ。予選・B決勝には付けない。
+const medalOf = x => isFinalA(x) ? (MEDAL[x.result && x.result.rank] || "") : "";
+const ovPill  = x => { const n = overallRank(x); return n ? `<span class="pill ov">総合${n}位</span>` : ""; };
 const hasRes  = l => l.some(e => e && e.result);
 const resSec  = e => { const t=e.result&&e.result.time; if(!t) return Infinity;
   const m=t.match(/^(?:(\d+):)?(\d+)\.(\d+)$/); return m?(+(m[1]||0))*60+(+m[2])+(+("0."+m[3])):Infinity; };
@@ -408,8 +429,8 @@ const recMk = e => (e.result && e.result.rec) ? `<span class="nrmk">★${esc(e.r
 function resPill(e){
   const r = e.result; if(!r) return "";
   if(r.note) return `<span class="pill rk ng">${esc(r.note)}</span>`;
-  const md = MEDAL[r.rank] || "";
-  return (r.rank ? `<span class="pill rk${r.rank===1?" m1":""}">${md}${r.rank}位</span>` : "")
+  const md = medalOf(e);
+  return (r.rank ? `<span class="pill rk${r.rank===1&&isFinalA(e)?" m1":""}">${md}${r.rank}位</span>${ovPill(e)}` : "")
        + (r.time ? `<span class="rtime" style="margin-left:6px">${esc(r.time)}</span>` : "")
        + recMk(e);
 }
@@ -512,7 +533,6 @@ const TEAM_ORDER = (()=>{
 const teamRank = t => TEAM_ORDER.has(t) ? TEAM_ORDER.get(t) : 9999;
 
 /* ---------- 種目グループ ---------- */
-const PROG_BY_NO = new Map(PROGRAM.map(p => [p.no, p]));
 const EVENTS = (()=>{
   const m = new Map();
   for(const e of ENTRIES){
@@ -816,7 +836,7 @@ function viewEv(){
       <div class="sw-r1">
         ${done
           ? (e.result && e.result.rank
-              ? `<span class="rkno${e.result.rank===1?" m1":""}">${MEDAL[e.result.rank]||e.result.rank}</span>`
+              ? `<span class="rkno${e.result.rank===1&&isFinalA(e)?" m1":""}">${medalOf(e)||e.result.rank}</span>`
               : `<span class="rkno" style="background:rgba(140,155,185,.14);color:var(--muted)">-</span>`)
           : `<span class="sw-bd" style="margin:0 6px 0 0;background:rgba(255,204,102,.13);color:var(--gold)">${i+1}</span>`}
         <span class="sw-nm">${esc(e.name)}</span>
@@ -829,6 +849,7 @@ function viewEv(){
         <span class="sw-tm">${esc(e.team)}</span>${hlPill(e.team)}
         ${e.grade?`<span class="pill">${esc(shortGrade(e.grade))}</span>`:""}
         <span class="pill ${gcls(e.gender)}">${isF(e.gender)?"女子":"男子"}</span>
+        ${ovPill(e)}
         ${done && e.time ? `<span class="pill ent">申込 ${esc(e.time)}</span>` : ""}
         ${tags(e)}
       </div></div>`).join("");
@@ -873,7 +894,7 @@ function viewPg(){
         <div class="sw-r2">${e.team?`<span class="sw-tm">${esc(e.team)}</span>`:""}${hlPill(e.team||e.name)}
           ${e.grade?`<span class="pill">${esc(shortGrade(e.grade))}</span>`:""}
           <span class="pill ${gcls(e.gender)}">${isF(e.gender)?"女子":"男子"}</span>
-          ${e.result&&e.result.rank?`<span class="pill rk${e.result.rank===1?" m1":""}">${MEDAL[e.result.rank]||""}${e.result.rank}位</span>`:""}
+          ${e.result&&e.result.rank?`<span class="pill rk${e.result.rank===1&&isFinalA(e)?" m1":""}">${medalOf(e)}${e.result.rank}位</span>${ovPill(e)}`:""}
           ${e.result&&e.time?`<span class="pill ent">申込 ${esc(e.time)}</span>`:""}
           ${e.isRelay&&e.members?.length?`<span class="sw-tm">${esc(e.members.join("・"))}</span>`:""}
           ${tags(e)}</div></div>`).join("")}`;
@@ -923,7 +944,7 @@ function viewRl(){
       <div class="sw-r1">
         ${done
           ? (r.result && r.result.rank
-              ? `<span class="rkno${r.result.rank===1?" m1":""}">${MEDAL[r.result.rank]||r.result.rank}</span>`
+              ? `<span class="rkno${r.result.rank===1&&isFinalA(r)?" m1":""}">${medalOf(r)||r.result.rank}</span>`
               : `<span class="rkno" style="background:rgba(140,155,185,.14);color:var(--muted)">-</span>`)
           : `<span class="sw-bd" style="margin:0 6px 0 0;background:rgba(255,204,102,.13);color:var(--gold)">${i+1}</span>`}
         <span class="sw-nm">${esc(r.team)}</span>${hlPill(r.team)}
@@ -997,7 +1018,7 @@ function viewLn(){
             <div class="sw-r2">${e.team?`<span class="sw-tm">${esc(e.team)}</span>`:""}${hlPill(e.team)}${e.grade?`<span class="pill">${esc(shortGrade(e.grade))}</span>`:""}${hitStd(e)?`<span class="pill t">★</span>`:""}</div>
           </div>
           ${e.result ? `<div class="ln-tm" style="color:var(--gold)">${esc(e.result.time || e.result.note || "")}${
-              e.result.rank?` <span class="pill rk${e.result.rank===1?" m1":""}">${MEDAL[e.result.rank]||""}${e.result.rank}位</span>`:""}${recMk(e)}</div>`
+              e.result.rank?` <span class="pill rk${e.result.rank===1&&isFinalA(e)?" m1":""}">${medalOf(e)}${e.result.rank}位</span>${ovPill(e)}`:""}${recMk(e)}</div>`
             : tmTag(e,"div","ln-tm")}</div>`;
       }).join("")}
     </div>`).join("");
