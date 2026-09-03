@@ -503,13 +503,18 @@ const TEAM_ORDER = (()=>{
 const teamRank = t => TEAM_ORDER.has(t) ? TEAM_ORDER.get(t) : 9999;
 
 /* ---------- 種目グループ ---------- */
+const PROG_BY_NO = new Map(PROGRAM.map(p => [p.no, p]));
 const EVENTS = (()=>{
   const m = new Map();
   for(const e of ENTRIES){
     if(e.entryType === "リレーのみ") continue;
     const ev = e.event || ((e.distance||"") + " " + (e.stroke||"")).trim();
-    const k  = glabel(e.gender) + " " + ev;
-    if(!m.has(k)) m.set(k, {key:k, gender:e.gender, event:ev, list:[]});
+    // 予選・B決勝・決勝は別のレース。競技No.ごとに分ける
+    // （まとめると No.9〜20 のような決勝が一覧から消える。2026-09-03に実害）
+    const no = e.programNos?.[0];
+    const rd = (PROG_BY_NO.get(no)||{}).round || "";
+    const k  = glabel(e.gender) + " " + ev + (rd && rd !== "予選" ? " " + rd : "");
+    if(!m.has(k)) m.set(k, {key:k, gender:e.gender, event:ev, round:rd, list:[]});
     m.get(k).list.push(e);
   }
   for(const g of m.values()){
