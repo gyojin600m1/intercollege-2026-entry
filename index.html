@@ -134,6 +134,8 @@ select{
 .orow .who .nm{font-size:13.5px;font-weight:700}
 .orow .from{margin-top:5px;font-size:11.5px;color:var(--muted);line-height:1.5}
 .orow .ev{display:block;margin-top:3px;font-size:11.5px;color:var(--dim);line-height:1.5}
+.rlhd{padding:6px 0 2px;font-size:11.5px;font-weight:700;color:var(--accent)}
+.rlhd .dim{color:var(--dim);font-weight:400}
 .orow .ogev{display:inline-flex;align-items:center;gap:4px;margin:4px 6px 0 0;padding:5px 9px;
   min-height:30px;border:1px solid var(--border);border-radius:999px;color:var(--text);
   font-size:11.5px;cursor:pointer;background:var(--card2)}
@@ -614,10 +616,18 @@ function swCard(s, i, noTeamPill){
   const open = ST.open.has(KEY(s.evs[0]||s)) ? " open" : "";
   // 種目行タップで組・レーンへジャンプ（そのレースが RACE_BY_NO にあるときだけ）
   const jn = e => (META.lanePrediction!==false && e.programNos?.length) ? ` data-jn="${e.programNos[0]}" style="cursor:pointer"` : "";
-  const evs = s.evs.map(e => `<div class="ev"${jn(e)}>
+  const evRow = e => `<div class="ev"${jn(e)}>
       <span class="no">${e.programNos?.length ? "No."+e.programNos.join("/") : ""}</span>
       <span class="nm">${esc(e.event || ((e.distance||"")+" "+(e.stroke||"")))}${tags(e)}</span>
-      ${e.result ? `<span class="tm">${resPill(e)}</span>` : tmTag(e,"span","tm")}</div>`).join("");
+      ${e.result ? `<span class="tm">${resPill(e)}</span>` : tmTag(e,"span","tm")}</div>`;
+  // 個人種目が無い選手＝リレーで出場する選手。何も出さないと「情報が抜けている」と読まれるので、
+  // 所属校が申し込んだリレー種目を出す（泳者4名と泳順は当日決まる）。
+  const rl = s.evs.length ? [] : RELAYS.filter(r => r.team === s.team && isF(r.gender) === isF(s.gender))
+                                       .sort((a,b) => (a.programNos?.[0]||999) - (b.programNos?.[0]||999));
+  const evs = s.evs.length
+    ? s.evs.map(evRow).join("")
+    : (rl.length ? `<div class="rlhd">🏊 リレーで出場 <span class="dim">（泳者は当日発表）</span></div>`
+                 + rl.map(evRow).join("") : "");
   return `<div class="sw ${g}${open}${isHL(s.team)?" hl":""}" data-k="${esc(KEY(s.evs[0]||s))}">
     <div class="sw-r1">
       <span class="sw-nm">${esc(s.name)}</span>${kn}

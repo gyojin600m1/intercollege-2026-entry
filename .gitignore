@@ -1,1 +1,7 @@
 .DS_Store
+
+# 速報の作業ファイル
+watch/pdf/
+watch/log.txt
+watch/.seen.json
+watch/launchd.*.log
