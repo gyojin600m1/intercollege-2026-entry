@@ -18,7 +18,16 @@ PDF   = os.path.join(HERE, 'pdf')
 BASE  = "https://swim.seiko.co.jp/2026/S70401"
 LABEL = "com.fukuda.swim.intercollege-2026"
 STOP_AFTER = "2026-09-07 09:00"          # 大会翌朝に自分で止まる
-WINDOW = {"2026-09-03": (9,21), "2026-09-04": (8,21), "2026-09-05": (8,21), "2026-09-06": (8,21)}
+# 動かす時間帯（開始, 終了）。開始は "9:55" のように分まで書ける。
+# レース開始の5分前から動かし、終わったら止める。夜中は回さない。
+WINDOW = {"2026-09-03": ("9:00","18:15"),   # 1日目 終了（20競技すべて反映済み）
+          "2026-09-04": ("9:55","21:00"),   # 2日目 レース10:00から
+          "2026-09-05": ("9:55","21:00"),
+          "2026-09-06": ("9:55","21:00")}
+
+def _hm(v):
+    h, _, m = str(v).partition(":")
+    return int(h)*60 + (int(m) if m else 0)
 HOME_TAB = "origin"                       # 鹿児島出身の選手は結果が出たら必ず知らせる
 
 sys.path.insert(0, HERE)
@@ -57,10 +66,11 @@ def main():
     now = time.strftime('%Y-%m-%d %H:%M')
     if now > STOP_AFTER:                       # 停止判定は時間帯ガードより先に置く
         log('大会が終わったので見張りを止めた'); stop_myself(); return
-    today = time.strftime('%Y-%m-%d'); hh = int(time.strftime('%H'))
+    today = time.strftime('%Y-%m-%d')
+    mins = int(time.strftime('%H'))*60 + int(time.strftime('%M'))
     byhand = '--now' in sys.argv          # 手で動かすときは時間帯を気にしない
     win = WINDOW.get(today)
-    if not byhand and (not win or not (win[0] <= hh < win[1])): return   # 夜中は回さない
+    if not byhand and (not win or not (_hm(win[0]) <= mins < _hm(win[1]))): return   # 時間外は何もしない
 
     d = json.load(open(SRC, encoding='utf-8'))
     DAY = {'1日目':1,'2日目':2,'3日目':3,'4日目':4}
