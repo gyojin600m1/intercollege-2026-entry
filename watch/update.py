@@ -156,7 +156,7 @@ def main():
             added += 1
 
     # 結果 → 組・水路で突合して result を入れる
-    filled = miss = 0; kagoshima = []
+    filled = miss = 0; kagoshima = []; hit_n = {}
     for n, rows in new_r.items():
         seat = {}
         for e in d['entries']:
@@ -170,7 +170,7 @@ def main():
             e = seat.get((x['heat'], x['lane']))
             if not e: miss += 1; continue
             e['result'] = {k2:v for k2,v in (('rank',x['rank']),('time',x['time']),('note',x['note'])) if v}
-            filled += 1
+            filled += 1; hit_n[n] = hit_n.get(n,0)+1
             if e.get('name') and any(s.get('origin') and s['name']==e['name'] for s in d['swimmers']):
                 kagoshima.append((e['name'], e['team'], prog[n]['gender']+prog[n]['distance']+prog[n]['stroke'],
                                   prog[n]['round'], x['rank'], x['time'] or x['note']))
@@ -205,7 +205,11 @@ def main():
     else:
         log('  中身に変化なし（コミットせず）')
 
-    seen['ranking'] = sorted(done_r | set(new_r)); seen['start'] = sorted(done_s | set(new_s))
+    # 1行も入らなかった競技は取得済みにしない（先にスタートリストが要る）
+    full = {n for n, rows in new_r.items() if hit_n.get(n,0) == len(rows)}
+    seen['ranking'] = sorted(done_r | full); seen['start'] = sorted(done_s | set(new_s))
+    short = {n: f"{hit_n.get(n,0)}/{len(new_r[n])}" for n in set(new_r) - full}
+    if short: log(f'  全員は入らなかった競技（次回やり直す）: {short}')
     seen['updated'] = now
     json.dump(seen, open(SEEN,'w'), ensure_ascii=False, indent=1)
 

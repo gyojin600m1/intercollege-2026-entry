@@ -20,13 +20,13 @@ def parse(path):
         if h: heat = int(h.group(1)); continue
         if heat is None: continue
         # 水路 加盟 登録No 氏名 ヨミガナ 所属 学年
-        m2 = re.match(r'^(\d)\s+(学\S+|\S+?)\s+(\d+)\s+(.+?)\s+([ｦ-ﾟ]+(?:\s+[ｦ-ﾟ]+)*)\s+(\S+)\s+(大\d)$', line)
+        m2 = re.match(r'^(\d)\s+(学\S+|\S+?)\s+(\d+)\s+(.+?)\s+([ｦ-ﾟ]+(?:\s+[ｦ-ﾟ]+)*)\s+(\S+)\s+(大\d)(?:\s+\S+)*$', line)
         if m2:
             rows.append(dict(heat=heat, lane=int(m2.group(1)), fed=m2.group(2), regno=int(m2.group(3)),
                              name=m2.group(4).strip(), kana=m2.group(5), team=m2.group(6), grade=m2.group(7)))
             continue
         # リレー: 水路 登録No チーム名 加盟（次の行にヨミガナ・学種。泳者は当日発表なので空欄）
-        m3 = re.match(r'^(\d)\s+(\d+)\s+(\S+)\s+(学\S+)$', line)
+        m3 = re.match(r'^(\d)\s+(\d+)\s+(\S+)\s+(学\S+)(?:\s+\S+)*$', line)
         if m3:
             rows.append(dict(heat=heat, lane=int(m3.group(1)), regno=int(m3.group(2)),
                              team=m3.group(3), fed=m3.group(4), relay=True))
