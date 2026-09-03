@@ -4,6 +4,7 @@
    列の座標は大会ごとにずれるので、位置ではなく『行の中の並び』で読む。"""
 import pdfplumber, re, collections, json, sys, os
 TIME = re.compile(r'^(?:\d{1,2}:)?\d{1,2}\.\d{2}$')
+NEWREC = re.compile(r'^(大会|学生|日本|世界|ｱｼﾞｱ|アジア|ﾀｲ|)新$|^[A-Z]R$')
 NOTE = ('棄権','失格','途中棄権','不出場','妨害','失格(','ＤＮＳ')
 ENOTE = {'DNS':'棄権','WDR':'棄権','SCR':'棄権','DSQ':'失格','DNF':'途中棄権','NS':'棄権'}
 NOTYET = ('まだ作成されていません','実施されません')
@@ -34,7 +35,7 @@ def parse(path):
                     rank = [w['text'] for w in ws if w['x0'] < hl['x0'] and re.fullmatch(r'\d{1,3}', w['text'])]
                     h,l = hl['text'].split('/')
                     cur = dict(heat=int(h), lane=int(l),
-                               rank=int(rank[-1]) if rank else None, time=None, note=None)
+                               rank=int(rank[-1]) if rank else None, time=None, note=None, rec=None)
                     rows.append(cur)
                 if cur is None: continue
                 # 記録：行の中で一番右にある時計形式（ラップは左側に並ぶので右端を採る）
@@ -44,7 +45,12 @@ def parse(path):
                 if cur['time'] is None:
                     lo, hi = (recX - 40, recX + 60) if recX is not None else (380, 10**6)
                     cand=[w for w in ws if TIME.fullmatch(w['text']) and lo <= w['x0'] <= hi]
-                    if cand: cur['time'] = max(cand, key=lambda w: w['x0'])['text']
+                    if cand:
+                        tw = max(cand, key=lambda w: w['x0'])
+                        cur['time'] = tw['text']
+                        # 記録のすぐ右に「大会新」「学生新」などが出る
+                        nr = [w['text'] for w in ws if w['x0'] > tw['x0'] and NEWREC.fullmatch(w['text'])]
+                        if nr: cur['rec'] = nr[0]
                 for w in ws:
                     t = w['text'].strip('（）() ')
                     if t in NOTE: cur['note'] = t.replace('ＤＮＳ','棄権')

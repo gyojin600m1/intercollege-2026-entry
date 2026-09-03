@@ -179,7 +179,8 @@ def main():
         for x in rows:
             e = seat.get((x['heat'], x['lane']))
             if not e: miss += 1; continue
-            e['result'] = {k2:v for k2,v in (('rank',x['rank']),('time',x['time']),('note',x['note'])) if v}
+            e['result'] = {k2:v for k2,v in (('rank',x['rank']),('time',x['time']),
+                                             ('note',x['note']),('rec',x.get('rec'))) if v}
             filled += 1; hit_n[n] = hit_n.get(n,0)+1
             if e.get('name') and any(s.get('origin') and s['name']==e['name'] for s in d['swimmers']):
                 kagoshima.append((e['name'], e['team'], prog[n]['gender']+prog[n]['distance']+prog[n]['stroke'],
