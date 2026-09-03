@@ -22,7 +22,7 @@ WINDOW = {"2026-09-03": (9,21), "2026-09-04": (8,21), "2026-09-05": (8,21), "202
 HOME_TAB = "origin"                       # 鹿児島出身の選手は結果が出たら必ず知らせる
 
 sys.path.insert(0, HERE)
-import parse_start, parse_rank
+import parse_start, parse_rank, fetch_points
 
 def log(m):
     with open(LOG,'a') as f: f.write(time.strftime('%m/%d %H:%M ')+m+'\n')
@@ -94,8 +94,38 @@ def main():
                 log(f'  結果PDF読めず No.{n} {type(e).__name__}'); continue
             if r: new_r[n] = r
 
-    if not new_s and not new_r:
+    # 学校対抗得点は公式の速報をそのまま取り込む（結果の有無と関係なく毎回見る）
+    pts_changed = False
+    try:
+        pts = fetch_points.build(fetch_points.fetch())
+        if pts.get('genders'):
+            pts['note'] = ('※ 得点は大会公式の学校対抗得点速報の値をそのまま表示しています。'
+                           '最終種目の得点は会場での結果発表後に反映されます。')
+            if json.dumps(d.get('teamPoints'), ensure_ascii=False, sort_keys=True) != \
+               json.dumps(pts, ensure_ascii=False, sort_keys=True):
+                d['teamPoints'] = pts; pts_changed = True
+    except Exception as e:
+        log(f'  学校対抗得点の取得に失敗: {type(e).__name__}')
+
+    if not new_s and not new_r and not pts_changed:
         log(f'変化なし（結果 {len(done_r)}/{len(prog)}競技 取り込み済み）'); return
+    if pts_changed and not new_s and not new_r:
+        c = d['summary']['counts']
+        c['individualEntries'] = len([e for e in d['entries'] if e.get('entryType')!='リレーのみ'])
+        c['relayEntries'] = len(d['relays'])
+        json.dump(d, open(SRC,'w'), ensure_ascii=False, indent=1)
+        b = subprocess.run(['python3', BUILD, SRC], capture_output=True, text=True)
+        if b.returncode == 0:
+            subprocess.run(['cp', OUT, os.path.join(APP,'index.html')], check=False)
+            subprocess.run(['git','add','index.html'], cwd=APP, check=False)
+            cm = subprocess.run(['git','commit','-q','-m',f"学校対抗得点を更新 {time.strftime('%m/%d %H:%M')}"],
+                                cwd=APP, capture_output=True, text=True)
+            if cm.returncode == 0:
+                subprocess.run(['git','push','-q'], cwd=APP, capture_output=True, text=True)
+            tops = ' / '.join(f"{x['gender']}{x['teams'][0]['team']}{x['teams'][0]['points']:g}"
+                              for x in pts['genders'] if x['teams'])
+            log(f'  学校対抗得点を更新（{tops}）')
+        return
 
     # ============ ここから反映。1つでも辻褄が合わなければ何も書かない ============
     def sec(t):

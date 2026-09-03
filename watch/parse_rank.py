@@ -13,7 +13,7 @@ def parse(path):
         first = pdf.pages[0].extract_text() or ''
         if any(x in first for x in NOTYET) or not first.strip():
             return None
-        rows, cur = [], None
+        rows, cur, recX = [], None, None
         for page in pdf.pages:
             line = collections.defaultdict(list)
             for w in page.extract_words():
@@ -21,6 +21,13 @@ def parse(path):
             for kk in sorted(line):
                 ws = sorted(line[kk], key=lambda w: w['x0'])
                 texts = [w['text'] for w in ws]
+                # 列見出しから「記録」列の位置を覚える。
+                # 1500m/800mは記録の前に「800m」列が増え、リレーは「（第１泳者）」列が増えるので、
+                # 位置を決め打ちにすると通過タイムを記録と取り違える（2026-09-03 No.8で実害）。
+                if '記録' in texts and '順位' in texts:
+                    rw = next((w for w in ws if w['text'] == '記録'), None)
+                    if rw: recX = rw['x0']
+                    continue
                 # 選手の1行目 = 「組/水路」を含む行（左寄り）
                 hl = next((w for w in ws if w['x0'] < 170 and re.fullmatch(r'\d{1,2}/\d', w['text'])), None)
                 if hl:
@@ -35,7 +42,8 @@ def parse(path):
                 # 反応時間は ( 0.59) と括弧付きなので TIME にマッチしない。
                 # 最終記録の行の次にラップが並ぶため、一度入ったら上書きしない。
                 if cur['time'] is None:
-                    cand=[w for w in ws if TIME.fullmatch(w['text']) and w['x0'] > 380]
+                    lo, hi = (recX - 40, recX + 60) if recX is not None else (380, 10**6)
+                    cand=[w for w in ws if TIME.fullmatch(w['text']) and lo <= w['x0'] <= hi]
                     if cand: cur['time'] = max(cand, key=lambda w: w['x0'])['text']
                 for w in ws:
                     t = w['text'].strip('（）() ')
