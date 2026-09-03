@@ -181,6 +181,11 @@ select{
 .pill.x{background:linear-gradient(90deg,var(--male),var(--female));color:#fff;border-color:transparent;font-weight:700}
 .pill.t{color:var(--gold);border-color:rgba(255,204,102,.35);font-weight:700;font-variant-numeric:tabular-nums}
 .pill.r{color:var(--muted);border-color:var(--border);font-weight:700}
+.pill.nr{background:linear-gradient(135deg,#ff6b2c,#ff3d3d);color:#fff;border-color:transparent;
+  font-weight:800;letter-spacing:.3px}
+.nrmk{display:inline-flex;align-items:center;gap:2px;margin-left:6px;padding:1px 7px;border-radius:999px;
+  background:linear-gradient(135deg,#ff6b2c,#ff3d3d);color:#fff;font-size:10.5px;font-weight:800;
+  vertical-align:middle;white-space:nowrap}
 .pill.rk{background:rgba(255,204,102,.16);color:var(--gold);border-color:transparent;font-weight:800}
 .pill.rk.m1{background:var(--gold);color:#241a00}
 .pill.rk.ng{background:rgba(140,155,185,.16);color:var(--muted)}
@@ -397,12 +402,15 @@ const resSec  = e => { const t=e.result&&e.result.time; if(!t) return Infinity;
   const m=t.match(/^(?:(\d+):)?(\d+)\.(\d+)$/); return m?(+(m[1]||0))*60+(+m[2])+(+("0."+m[3])):Infinity; };
 const resKey  = e => e.result ? (e.result.rank || 9998) : 9999;
 // 順位バッジ（1〜3位は色を変える）。棄権・失格は記録の代わりにその文字を出す。
+// 新記録の印。★＋語（大会新・学生新…）。メダルは順位のものなので形も色も変える。
+const recMk = e => (e.result && e.result.rec) ? `<span class="nrmk">★${esc(e.result.rec)}</span>` : "";
 function resPill(e){
   const r = e.result; if(!r) return "";
   if(r.note) return `<span class="pill rk ng">${esc(r.note)}</span>`;
   const md = MEDAL[r.rank] || "";
   return (r.rank ? `<span class="pill rk${r.rank===1?" m1":""}">${md}${r.rank}位</span>` : "")
-       + (r.time ? `<span class="rtime" style="margin-left:6px">${esc(r.time)}</span>` : "");
+       + (r.time ? `<span class="rtime" style="margin-left:6px">${esc(r.time)}</span>` : "")
+       + recMk(e);
 }
 
 /* ---------- 標準記録の突破判定（program[].standard があるときだけ） ---------- */
@@ -813,7 +821,7 @@ function viewEv(){
         <span class="sw-nm">${esc(e.name)}</span>
         ${done
           ? (e.result && e.result.note ? `<span class="sw-bd">${esc(e.result.note)}</span>`
-             : e.result && e.result.time ? `<span class="sw-bd" style="color:var(--gold)">${esc(e.result.time)}</span>` : "")
+             : e.result && e.result.time ? `<span class="sw-bd" style="color:var(--gold)">${esc(e.result.time)}</span>${recMk(e)}` : "")
           : tmTag(e,"span","sw-bd")}
       </div>
       <div class="sw-r2">
@@ -858,10 +866,14 @@ function viewPg(){
       ${stdHead(list)}
       ${list.length?`<div class="count">${ordLabel()}・<b>${list.length}</b>${unit}</div>`:""}
       ${list.map(e=>`<div class="sw ${gcls(e.gender)}${isHL(e.team||e.name)?" hl":""}">
-        <div class="sw-r1"><span class="sw-nm">${esc(e.name)}</span>${tmTag(e,"span","sw-bd")}</div>
+        <div class="sw-r1"><span class="sw-nm">${esc(e.name)}</span>${
+          e.result ? `<span class="sw-bd" style="color:var(--gold)">${esc(e.result.time || e.result.note || "")}</span>${recMk(e)}`
+                   : tmTag(e,"span","sw-bd")}</div>
         <div class="sw-r2">${e.team?`<span class="sw-tm">${esc(e.team)}</span>`:""}${hlPill(e.team||e.name)}
           ${e.grade?`<span class="pill">${esc(shortGrade(e.grade))}</span>`:""}
           <span class="pill ${gcls(e.gender)}">${isF(e.gender)?"女子":"男子"}</span>
+          ${e.result&&e.result.rank?`<span class="pill rk${e.result.rank===1?" m1":""}">${MEDAL[e.result.rank]||""}${e.result.rank}位</span>`:""}
+          ${e.result&&e.time?`<span class="pill">申込 ${esc(e.time)}</span>`:""}
           ${e.isRelay&&e.members?.length?`<span class="sw-tm">${esc(e.members.join("・"))}</span>`:""}
           ${tags(e)}</div></div>`).join("")}`;
   }
@@ -919,7 +931,7 @@ function viewRl(){
         ${r.note?`<span class="pill">${esc(r.note)}</span>`:""}
         ${done
           ? (r.result && r.result.note ? `<span class="sw-bd">${esc(r.result.note)}</span>`
-             : r.result && r.result.time ? `<span class="sw-bd" style="color:var(--gold)">${esc(r.result.time)}</span>` : "")
+             : r.result && r.result.time ? `<span class="sw-bd" style="color:var(--gold)">${esc(r.result.time)}</span>${recMk(r)}` : "")
           : tmTag(r,"span","sw-bd")}
       </div>
       ${r.members?.length ? `<div class="sw-r2"><span class="sw-tm">${esc(r.members.join("・"))}</span></div>` : ""}
@@ -983,7 +995,9 @@ function viewLn(){
             <div class="ln-nm">${esc(e.name)}</div>
             <div class="sw-r2">${e.team?`<span class="sw-tm">${esc(e.team)}</span>`:""}${hlPill(e.team)}${e.grade?`<span class="pill">${esc(shortGrade(e.grade))}</span>`:""}${hitStd(e)?`<span class="pill t">★</span>`:""}</div>
           </div>
-          ${tmTag(e,"div","ln-tm")}</div>`;
+          ${e.result ? `<div class="ln-tm" style="color:var(--gold)">${esc(e.result.time || e.result.note || "")}${
+              e.result.rank?` <span class="pill rk${e.result.rank===1?" m1":""}">${MEDAL[e.result.rank]||""}${e.result.rank}位</span>`:""}${recMk(e)}</div>`
+            : tmTag(e,"div","ln-tm")}</div>`;
       }).join("")}
     </div>`).join("");
 
