@@ -878,10 +878,13 @@ function viewPg(){
 
   if(ST.pgNo != null){
     const p = PROGRAM.find(x => x.no === ST.pgNo);
-    const list = ENTRIES.filter(e => (e.programNos||[]).includes(ST.pgNo))
+    const list0 = ENTRIES.filter(e => (e.programNos||[]).includes(ST.pgNo))
       .concat(RELAYS.filter(r => (r.programNos||[]).includes(ST.pgNo))
                     .map(r => Object.assign({}, r, {name:r.team, team:"", isRelay:true})))
       .sort((a,b)=> secOf(a)-secOf(b));
+    // 結果が出たら順位順に並べ替える（申込タイム順のままだと1位が真ん中に来て読めない）
+    const done = hasRes(list0);
+    const list = done ? [...list0].sort((a,b)=> resKey(a)-resKey(b) || resSec(a)-resSec(b)) : list0;
     const unit = list.length && list.every(e => e.isRelay) ? "チーム" : "名";
     const rc = RACE_BY_NO.get(ST.pgNo);
     const together = (rc && rc.nos.length > 1)
@@ -894,7 +897,7 @@ function viewPg(){
       ${META.lanePrediction ? `<button class="tab" id="toLn" style="min-height:48px;width:100%;background:var(--card2);border-radius:11px;border:1px solid var(--border);color:var(--accent);margin-bottom:10px">🏁 この種目の組・レーンを見る</button>` : ""}
       ${p&&p.note?`<div class="note">${md(p.note)}</div>`:""}
       ${stdHead(list)}
-      ${list.length?`<div class="count">${ordLabel()}・<b>${list.length}</b>${unit}</div>`:""}
+      ${list.length?`<div class="count">${done ? "🏁 結果" : ordLabel()}・<b>${list.length}</b>${unit}</div>`:""}
       ${list.map(e=>`<div class="sw ${gcls(e.gender)}${isMk(e)?" hl":""}">
         <div class="sw-r1"><span class="sw-nm">${esc(e.name)}</span>${
           e.result ? `<span class="sw-bd" style="color:var(--gold)">${esc(e.result.time || e.result.note || "")}</span>${recMk(e)}`
