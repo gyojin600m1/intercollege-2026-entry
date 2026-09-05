@@ -121,7 +121,8 @@ def main():
         log(f'変化なし（結果 {len(done_r)}/{len(prog)}競技 取り込み済み）'); return
     if pts_changed and not new_s and not new_r:
         c = d['summary']['counts']
-        c['individualEntries'] = len([e for e in d['entries'] if e.get('entryType')!='リレーのみ'])
+        c['individualEntries'] = len({(e.get('id') or e.get('name'), e.get('team'), e.get('distance'), e.get('stroke'))
+                              for e in d['entries'] if e.get('entryType')!='リレーのみ'})
         c['relayEntries'] = len(d['relays'])
         json.dump(d, open(SRC,'w'), ensure_ascii=False, indent=1)
         b = subprocess.run(['python3', BUILD, SRC], capture_output=True, text=True)
@@ -194,7 +195,8 @@ def main():
 
     # 件数の再計算（build.py の検算に通す）
     c = d['summary']['counts']
-    c['individualEntries'] = len([e for e in d['entries'] if e.get('entryType')!='リレーのみ'])
+    c['individualEntries'] = len({(e.get('id') or e.get('name'), e.get('team'), e.get('distance'), e.get('stroke'))
+                              for e in d['entries'] if e.get('entryType')!='リレーのみ'})
     c['relayEntries'] = len(d['relays'])
     d['meta']['laneConfirmed'] = True
     json.dump(d, open(SRC,'w'), ensure_ascii=False, indent=1)
